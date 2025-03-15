@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân loại ảnh</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Phân loại ảnh</h1>
+            <p class="subtitle">Tải lên ảnh hoặc chụp ảnh để phân loại</p>
+        </header>
+        
+        <main>
+            <div class="upload-container">
+                <div class="tab-container">
+                    <button class="tab-button active" onclick="switchTab('upload')">Tải ảnh lên</button>
+                    <button class="tab-button" onclick="switchTab('camera')">Chụp ảnh</button>
+                </div>
+
+                <div id="upload-tab" class="tab-content active">
+                    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="upload-form">
+                        <div class="file-input-container">
+                            <input type="file" id="file" name="file" accept="image/*" required class="file-input" 
+                                   onchange="showFileName()">
+                            <label for="file" class="file-label">
+                                <span class="upload-icon">📁</span>
+                                <span class="file-text">Chọn ảnh</span>
+                            </label>
+                            <div id="file-name" class="file-name"></div>
+                        </div>
+                        <button type="submit" class="upload-button">Tải lên và Phân loại</button>
+                    </form>
+                </div>
+
+                <div id="camera-tab" class="tab-content">
+                    <!-- Left column - Camera view and controls -->
+                    <div class="left-column">
+                        <div class="camera-container">
+                            <video id="video" class="camera-preview" autoplay playsinline></video>
+                            <canvas id="canvas" style="display: none;"></canvas>
+                            <div class="camera-controls">
+                                <button id="startCamera" class="camera-button">Bật Camera</button>
+                                <button id="startAutoCapture" class="camera-button" disabled>Bắt đầu chụp tự động</button>
+                                <button id="stopAutoCapture" class="camera-button" disabled>Dừng chụp</button>
+                            </div>
+                            <div class="auto-status">
+                                <p id="autoStatus" class="status-text">Chưa kích hoạt chụp tự động</p>
+                                <p id="countdownTimer" class="countdown-text"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right column - Gallery of captured images -->
+                    <div class="right-column">
+                        <div class="gallery-container">
+                            <h3>Chất lượng trái cây</h3>
+                            <div id="capturedImages" class="captured-images-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>Quality Fruit</p>
+        </footer>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab-content');
+            const buttons = document.querySelectorAll('.tab-button');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            buttons.forEach(button => button.classList.remove('active'));
+            
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        }
+
+        // File upload
+        function showFileName() {
+            const input = document.getElementById('file');
+            const fileNameDiv = document.getElementById('file-name');
+            if (input.files.length > 0) {
+                fileNameDiv.textContent = input.files[0].name;
+            }
+        }
+
+        // Camera handling
+        let stream = null;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startButton = document.getElementById('startCamera');
+        const startAutoButton = document.getElementById('startAutoCapture');
+        const stopAutoButton = document.getElementById('stopAutoCapture');
+        const autoStatus = document.getElementById('autoStatus');
+        const countdownTimer = document.getElementById('countdownTimer');
+        const capturedImages = document.getElementById('capturedImages');
+        
+        let captureInterval = null;
+        let countdown = 10;
+        let isCapturing = false;
+
+        startButton.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                video.srcObject = stream;
+                startButton.disabled = true;
+                startAutoButton.disabled = false;
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                alert('Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.');
+            }
+        });
+
+        startAutoButton.addEventListener('click', () => {
+            if (!isCapturing) {
+                startAutomaticCapture();
+                startAutoButton.disabled = true;
+                stopAutoButton.disabled = false;
+            }
+        });
+
+        stopAutoButton.addEventListener('click', () => {
+            stopAutomaticCapture();
+            startAutoButton.disabled = false;
+            stopAutoButton.disabled = true;
+        });
+
+        function startAutomaticCapture() {
+            isCapturing = true;
+            countdown = 10;
+            autoStatus.textContent = "Đang chụp tự động mỗi 10 giây";
+            updateCountdown();
+            
+            captureInterval = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    captureAndAnalyze();
+                    countdown = 10;
+                }
+                updateCountdown();
+            }, 1000);
+        }
+
+        function stopAutomaticCapture() {
+            isCapturing = false;
+            clearInterval(captureInterval);
+            autoStatus.textContent = "Đã dừng chụp tự động";
+            countdownTimer.textContent = "";
+        }
+
+        function updateCountdown() {
+            countdownTimer.textContent = `Chụp ảnh sau: ${countdown} giây`;
+        }
+
+        function captureAndAnalyze() {
+            if (!stream) return;
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('file', blob, `auto-capture-${Date.now()}.jpg`);
+                
+                // Create a loading indicator for this capture
+                const captureItem = document.createElement('div');
+                captureItem.className = 'capture-item loading';
+                captureItem.innerHTML = `
+                    <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+                    <div class="capture-loading">Đang phân tích...</div>
+                `;
+                capturedImages.prepend(captureItem);
+                
+                fetch('{{ url_for("classify_only") }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Update the capture item with results
+                    captureItem.classList.remove('loading');
+                    captureItem.innerHTML = `
+                        <div class="capture-item-inner">
+                            <img src="${data.image_url}" class="thumbnail" alt="Ảnh đã chụp">
+                            <div class="capture-details">
+                                <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+                                <div class="capture-result ${getQualityClass(data.result)}">${data.result}</div>
+                                <div class="capture-accuracy">Độ chính xác: ${data.accuracy.toFixed(2)}%</div>
+                            </div>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error analyzing image:', error);
+                    captureItem.classList.remove('loading');
+                    captureItem.innerHTML = `
+                        <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+                        <div class="capture-error">Lỗi phân tích</div>
+                    `;
+                });
+            }, 'image/jpeg', 0.9);
+        }
+
+        function getQualityClass(result) {
+            if (result.includes('Good')) return 'good-quality';
+            if (result.includes('Bad')) return 'bad-quality';
+            return 'mixed-quality';
+        }
+
+        // Clean up camera when switching tabs
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                stopAutomaticCapture();
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                    startButton.disabled = false;
+                    startAutoButton.disabled = true;
+                    stopAutoButton.disabled = true;
+                }
+            });
+        });
+    </script>
+</body>
+</html>

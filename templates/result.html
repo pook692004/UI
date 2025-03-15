@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kết quả Phân loại</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Kết quả Phân loại</h1>
+        </header>
+        
+        <main>
+            <div class="result-container">
+                <div class="image-container">
+                    <img src="{{ url_for('static', filename='uploads/' + filename) }}" 
+                         alt="Ảnh đã tải lên"
+                         class="result-image">
+                </div>
+                
+                <div class="result-details">
+                    <h2>Kết quả phân tích</h2>
+                    <div class="result-box">
+                        <p class="result-text" style="color: green; font-weight: bold;">{{ result }}</p>
+                        {% if accuracy and accuracy > 0 %}
+                        <div class="accuracy-container">
+                            <p class="accuracy-label">Độ chính xác:</p>
+                            <div class="accuracy-bar-container">
+                                <div class="accuracy-bar" data-accuracy="{{ accuracy }}">
+                                    <span class="accuracy-value">{{ "%.2f"|format(accuracy) }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>                    
+                </div>
+                
+                <a href="{{ url_for('index') }}" class="back-button">
+                    <span class="back-icon">←</span> Tải ảnh khác
+                </a>
+            </div>
+        </main>
+        
+        <footer>
+            <p>Quality Fruit</p>
+        </footer>
+    </div>
+
+    <script>
+        // Set width for accuracy bar after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const accuracyBar = document.querySelector('.accuracy-bar');
+            if (accuracyBar) {
+                const accuracy = accuracyBar.getAttribute('data-accuracy');
+                accuracyBar.style.width = accuracy + '%';
+            }
+        });
+    </script>
+</body>
+</html>
