@@ -21,18 +21,25 @@
                 </div>
 
                 <div id="upload-tab" class="tab-content active">
-                    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="upload-form">
-                        <div class="file-input-container">
-                            <input type="file" id="file" name="file" accept="image/*" required class="file-input" 
-                                   onchange="showFileName()">
-                            <label for="file" class="file-label">
-                                <span class="upload-icon">📁</span>
-                                <span class="file-text">Chọn ảnh</span>
-                            </label>
-                            <div id="file-name" class="file-name"></div>
+                    <!-- Two columns layout similar to camera-tab -->
+                    <div class="left-column">
+                        <form id="uploadForm" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="upload-form">
+                            <div class="file-input-container">
+                                <input type="file" id="file" name="file" accept="image/*" required class="file-input" 
+                                       onchange="autoSubmitForm()">
+                                <label for="file" class="file-label">
+                                    <span class="upload-icon">📁</span>
+                                    <span class="file-text">Chọn ảnh</span>
+                                </label>
+                                <div id="file-name" class="file-name"></div>
+                            </div>
+                    </div>
+                    <div class="right-column">
+                        <div class="gallery-container">
+                            <h3>Chất lượng trái cây</h3>
+                            <div id="uploadedImages" class="captured-images-list"></div>
                         </div>
-                        <button type="submit" class="upload-button">Tải lên và Phân loại</button>
-                    </form>
+                    </div>
                 </div>
 
                 <div id="camera-tab" class="tab-content">
@@ -70,170 +77,230 @@
     </div>
 
     <script>
-        // Tab switching
-        function switchTab(tabName) {
-            const tabs = document.querySelectorAll('.tab-content');
-            const buttons = document.querySelectorAll('.tab-button');
-            
-            tabs.forEach(tab => tab.classList.remove('active'));
-            buttons.forEach(button => button.classList.remove('active'));
-            
-            document.getElementById(`${tabName}-tab`).classList.add('active');
-            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
-        }
+// Hàm chuyển đổi giữa các tab (Tải ảnh lên và Chụp ảnh)
+function switchTab(tabName) {
+    const tabs = document.querySelectorAll('.tab-content');  // Lấy tất cả các phần nội dung tab
+    const buttons = document.querySelectorAll('.tab-button');  // Lấy tất cả các nút tab
+    
+    tabs.forEach(tab => tab.classList.remove('active'));  // Loại bỏ lớp 'active' khỏi tất cả các tab
+    buttons.forEach(button => button.classList.remove('active'));  // Loại bỏ lớp 'active' khỏi tất cả các nút
+    
+    document.getElementById(`${tabName}-tab`).classList.add('active');  // Thêm lớp 'active' cho tab được chọn
+    document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');  // Thêm lớp 'active' cho nút được chọn
+}
 
-        // File upload
-        function showFileName() {
-            const input = document.getElementById('file');
-            const fileNameDiv = document.getElementById('file-name');
-            if (input.files.length > 0) {
-                fileNameDiv.textContent = input.files[0].name;
-            }
-        }
+// Hàm hiển thị tên tệp tin đã chọn
+function showFileName() {
+    const input = document.getElementById('file');  // Lấy phần tử input file
+    const fileNameDiv = document.getElementById('file-name');  // Lấy phần tử hiển thị tên file
+    if (input.files.length > 0) {  // Kiểm tra xem có file nào được chọn không
+        fileNameDiv.textContent = input.files[0].name;  // Hiển thị tên của file đầu tiên được chọn
+    }
+}
 
-        // Camera handling
-        let stream = null;
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const startButton = document.getElementById('startCamera');
-        const startAutoButton = document.getElementById('startAutoCapture');
-        const stopAutoButton = document.getElementById('stopAutoCapture');
-        const autoStatus = document.getElementById('autoStatus');
-        const countdownTimer = document.getElementById('countdownTimer');
-        const capturedImages = document.getElementById('capturedImages');
-        
-        let captureInterval = null;
-        let countdown = 10;
-        let isCapturing = false;
+// Khởi tạo các biến để xử lý camera
+let stream = null;  // Biến lưu trữ luồng video
+const video = document.getElementById('video');  // Phần tử video hiển thị hình ảnh từ camera
+const canvas = document.getElementById('canvas');  // Canvas dùng để chụp ảnh từ video
+const startButton = document.getElementById('startCamera');  // Nút bật camera
+const startAutoButton = document.getElementById('startAutoCapture');  // Nút bắt đầu chụp tự động
+const stopAutoButton = document.getElementById('stopAutoCapture');  // Nút dừng chụp tự động
+const autoStatus = document.getElementById('autoStatus');  // Hiển thị trạng thái chụp tự động
+const countdownTimer = document.getElementById('countdownTimer');  // Hiển thị đồng hồ đếm ngược
+const capturedImages = document.getElementById('capturedImages');  // Phần tử chứa danh sách ảnh đã chụp
+const uploadedImages = document.getElementById('uploadedImages');  // Phần tử chứa danh sách ảnh đã tải lên
 
-        startButton.addEventListener('click', async () => {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                });
-                video.srcObject = stream;
-                startButton.disabled = true;
-                startAutoButton.disabled = false;
-            } catch (err) {
-                console.error('Error accessing camera:', err);
-                alert('Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.');
-            }
-        });
+let captureInterval = null;  // Biến lưu trữ interval cho việc chụp tự động
+let countdown = 5;  // Thời gian đếm ngược ban đầu (5 giây)
+let isCapturing = false;  // Trạng thái đang chụp
 
-        startAutoButton.addEventListener('click', () => {
-            if (!isCapturing) {
-                startAutomaticCapture();
-                startAutoButton.disabled = true;
-                stopAutoButton.disabled = false;
-            }
-        });
-
-        stopAutoButton.addEventListener('click', () => {
-            stopAutomaticCapture();
-            startAutoButton.disabled = false;
-            stopAutoButton.disabled = true;
-        });
-
-        function startAutomaticCapture() {
-            isCapturing = true;
-            countdown = 10;
-            autoStatus.textContent = "Đang chụp tự động mỗi 10 giây";
-            updateCountdown();
-            
-            captureInterval = setInterval(() => {
-                countdown--;
-                if (countdown <= 0) {
-                    captureAndAnalyze();
-                    countdown = 10;
-                }
-                updateCountdown();
-            }, 1000);
-        }
-
-        function stopAutomaticCapture() {
-            isCapturing = false;
-            clearInterval(captureInterval);
-            autoStatus.textContent = "Đã dừng chụp tự động";
-            countdownTimer.textContent = "";
-        }
-
-        function updateCountdown() {
-            countdownTimer.textContent = `Chụp ảnh sau: ${countdown} giây`;
-        }
-
-        function captureAndAnalyze() {
-            if (!stream) return;
-            
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            
-            canvas.toBlob(blob => {
-                const formData = new FormData();
-                formData.append('file', blob, `auto-capture-${Date.now()}.jpg`);
-                
-                // Create a loading indicator for this capture
-                const captureItem = document.createElement('div');
-                captureItem.className = 'capture-item loading';
-                captureItem.innerHTML = `
+// Hàm  để tự động gửi form khi chọn file
+function autoSubmitForm() {
+    showFileName();  // Hiển thị tên file trước
+    
+    // Tạo phần tử hiển thị cho ảnh vừa tải lên, bắt đầu với trạng thái đang tải
+    const uploadItem = document.createElement('div');
+    uploadItem.className = 'capture-item loading';
+    uploadItem.innerHTML = `
+        <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+        <div class="capture-loading">Đang phân tích...</div>
+    `;
+    uploadedImages.prepend(uploadItem); // Thêm vào đầu danh sách
+    
+    // Gửi form bằng Fetch API
+    const formData = new FormData(document.getElementById('uploadForm'));
+    
+    fetch('{{ url_for("classify_only") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Cập nhật giao diện với kết quả phân tích
+        uploadItem.classList.remove('loading');
+        uploadItem.innerHTML = `
+            <div class="capture-item-inner">
+                <img src="${data.image_url}" class="thumbnail" alt="Ảnh đã tải lên">
+                <div class="capture-details">
                     <div class="capture-time">${new Date().toLocaleTimeString()}</div>
-                    <div class="capture-loading">Đang phân tích...</div>
-                `;
-                capturedImages.prepend(captureItem);
-                
-                fetch('{{ url_for("classify_only") }}', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Update the capture item with results
-                    captureItem.classList.remove('loading');
-                    captureItem.innerHTML = `
-                        <div class="capture-item-inner">
-                            <img src="${data.image_url}" class="thumbnail" alt="Ảnh đã chụp">
-                            <div class="capture-details">
-                                <div class="capture-time">${new Date().toLocaleTimeString()}</div>
-                                <div class="capture-result ${getQualityClass(data.result)}">${data.result}</div>
-                                <div class="capture-accuracy">Độ chính xác: ${data.accuracy.toFixed(2)}%</div>
-                            </div>
-                        </div>
-                    `;
-                })
-                .catch(error => {
-                    console.error('Error analyzing image:', error);
-                    captureItem.classList.remove('loading');
-                    captureItem.innerHTML = `
-                        <div class="capture-time">${new Date().toLocaleTimeString()}</div>
-                        <div class="capture-error">Lỗi phân tích</div>
-                    `;
-                });
-            }, 'image/jpeg', 0.9);
-        }
+                    <div class="capture-result ${getQualityClass(data.result)}">${data.result}</div>
+                    <div class="capture-accuracy">Độ chính xác: ${data.accuracy.toFixed(2)}%</div>
+                </div>
+            </div>
+        `;
+        
+        // Reset form sau khi tải lên thành công
+        document.getElementById('file-name').textContent = '';
+        document.getElementById('uploadForm').reset();
+    })
+    .catch(error => {
+        console.error('Error analyzing image:', error);
+        uploadItem.classList.remove('loading');
+        uploadItem.innerHTML = `
+            <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+            <div class="capture-error">Lỗi phân tích</div>
+        `;
+    });
+}
 
-        function getQualityClass(result) {
-            if (result.includes('Good')) return 'good-quality';
-            if (result.includes('Bad')) return 'bad-quality';
-            return 'mixed-quality';
-        }
-
-        // Clean up camera when switching tabs
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', () => {
-                stopAutomaticCapture();
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    stream = null;
-                    startButton.disabled = false;
-                    startAutoButton.disabled = true;
-                    stopAutoButton.disabled = true;
-                }
-            });
+// Xử lý sự kiện khi nhấn nút bắt camera
+startButton.addEventListener('click', async () => {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: 'environment',  
+                width: { ideal: 1280 },  // Độ phân giải chiều rộng lý tưởng
+                height: { ideal: 720 }  // Độ phân giải chiều cao lý tưởng
+            } 
         });
+        video.srcObject = stream;  // Gán luồng video vào phần tử video
+        startButton.disabled = true;  // Vô hiệu hóa nút bật camera
+        startAutoButton.disabled = false;  // Kích hoạt nút chụp tự động
+    } catch (err) {
+        console.error('Error accessing camera:', err);  // In lỗi vào console
+        alert('Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.');  // Hiển thị thông báo lỗi
+    }
+});
+
+// Xử lý sự kiện khi nhấn nút bắt đầu chụp tự động
+startAutoButton.addEventListener('click', () => {
+    if (!isCapturing) {  // Kiểm tra nếu chưa đang trong trạng thái chụp
+        startAutomaticCapture();  // Bắt đầu chụp tự động
+        startAutoButton.disabled = true;  // Vô hiệu hóa nút bắt đầu
+        stopAutoButton.disabled = false;  // Kích hoạt nút dừng
+    }
+});
+
+// Xử lý sự kiện khi nhấn nút dừng chụp
+stopAutoButton.addEventListener('click', () => {
+    stopAutomaticCapture();  // Dừng chụp tự động
+    startAutoButton.disabled = false;  // Kích hoạt lại nút bắt đầu
+    stopAutoButton.disabled = true;  // Vô hiệu hóa nút dừng
+});
+
+// Hàm bắt đầu quá trình chụp tự động
+function startAutomaticCapture() {
+    isCapturing = true;  // Đánh dấu đang trong trạng thái chụp
+    countdown = 5;  // Đặt lại bộ đếm thời gian
+    autoStatus.textContent = "Đang chụp tự động mỗi 5 giây";  // Cập nhật trạng thái
+    updateCountdown();  // Cập nhật hiển thị đếm ngược
+    
+    captureInterval = setInterval(() => {  // Thiết lập interval chạy mỗi giây
+        countdown--;  // Giảm bộ đếm thời gian
+        if (countdown <= 0) {  // Nếu đã đến 0
+            captureAndAnalyze();  // Chụp và phân tích ảnh
+            countdown = 5;  // Đặt lại bộ đếm thời gian
+        }
+        updateCountdown();  // Cập nhật hiển thị đếm ngược
+    }, 1000);  // Mỗi 1 giây
+}
+
+// Hàm dừng quá trình chụp tự động
+function stopAutomaticCapture() {
+    isCapturing = false;  // Đánh dấu không còn trong trạng thái chụp
+    clearInterval(captureInterval);  // Xóa interval
+    autoStatus.textContent = "Đã dừng chụp tự động";  // Cập nhật trạng thái
+    countdownTimer.textContent = "";  // Xóa hiển thị đếm ngược
+}
+
+// Hàm cập nhật hiển thị đếm ngược
+function updateCountdown() {
+    countdownTimer.textContent = `Chụp ảnh sau: ${countdown} giây`;  // Cập nhật text hiển thị thời gian còn lại
+}
+
+// Hàm chụp và phân tích ảnh
+function captureAndAnalyze() {
+    if (!stream) return;  // Kiểm tra nếu không có luồng video thì thoát
+    
+    canvas.width = video.videoWidth;  // Đặt chiều rộng canvas bằng với video
+    canvas.height = video.videoHeight;  // Đặt chiều cao canvas bằng với video
+    canvas.getContext('2d').drawImage(video, 0, 0);  // Vẽ frame hiện tại từ video lên canvas
+    
+    canvas.toBlob(blob => {  // Chuyển đổi canvas thành blob dạng file
+        const formData = new FormData();  // Tạo form data để gửi file
+        formData.append('file', blob, `auto-capture-${Date.now()}.jpg`);  // Thêm file vào form với tên duy nhất
+        
+        // Tạo phần tử hiển thị cho ảnh vừa chụp, bắt đầu với trạng thái đang tải
+        const captureItem = document.createElement('div');
+        captureItem.className = 'capture-item loading';
+        captureItem.innerHTML = `
+            <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+            <div class="capture-loading">Đang phân tích...</div>
+        `;
+        capturedImages.prepend(captureItem);  // Thêm vào đầu danh sách (hiển thị trên cùng)
+        
+        // Gửi ảnh lên server để phân tích
+        fetch('{{ url_for("classify_only") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())  // Chuyển đổi phản hồi thành JSON
+        .then(data => {
+            // Cập nhật giao diện với kết quả phân tích
+            captureItem.classList.remove('loading');  // Loại bỏ trạng thái đang tải
+            captureItem.innerHTML = `
+                <div class="capture-item-inner">
+                    <img src="${data.image_url}" class="thumbnail" alt="Ảnh đã chụp">
+                    <div class="capture-details">
+                        <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+                        <div class="capture-result ${getQualityClass(data.result)}">${data.result}</div>
+                        <div class="capture-accuracy">Độ chính xác: ${data.accuracy.toFixed(2)}%</div>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            // Xử lý khi có lỗi
+            console.error('Error analyzing image:', error);  // In lỗi vào console
+            captureItem.classList.remove('loading');  // Loại bỏ trạng thái đang tải
+            captureItem.innerHTML = `
+                <div class="capture-time">${new Date().toLocaleTimeString()}</div>
+                <div class="capture-error">Lỗi phân tích</div>
+            `;
+        });
+    }, 'image/jpeg', 0.9);  // Định dạng JPEG với chất lượng 90%
+}
+
+// Hàm lấy lớp CSS tương ứng với kết quả chất lượng
+function getQualityClass(result) {
+    if (result.includes('Good')) return 'good-quality';  // Nếu có 'Good' thì trả về class chất lượng tốt
+    if (result.includes('Bad')) return 'bad-quality';  // Nếu có 'Bad' thì trả về class chất lượng xấu
+    return 'mixed-quality';  // Mặc định trả về class chất lượng hỗn hợp
+}
+
+// Dọn dẹp camera khi chuyển đổi tab
+document.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', () => {
+        stopAutomaticCapture();  // Dừng quá trình chụp tự động
+        if (stream) {  // Nếu có luồng video đang chạy
+            stream.getTracks().forEach(track => track.stop());  // Dừng tất cả các track
+            stream = null;  // Đặt stream về null
+            startButton.disabled = false;  // Kích hoạt lại nút bật camera
+            startAutoButton.disabled = true;  // Vô hiệu hóa nút bắt đầu chụp
+            stopAutoButton.disabled = true;  // Vô hiệu hóa nút dừng chụp
+        }
+    });
+});
     </script>
 </body>
 </html>

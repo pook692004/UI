@@ -7,8 +7,8 @@
     --good-quality-color: #4CAF50;
     --bad-quality-color: #F44336;
     --mixed-quality-color: #FF9800;
-    --container-width: 796px;
-    --container-height: 647px;
+    --container-width: 1300px;
+    --container-height: 650px;
 }
 
 body {
@@ -56,11 +56,16 @@ h1 {
 
 /* Main content */
 main {
-    flex: 1;
-    overflow: hidden;
+    flex: none; /* Ngăn main mở rộng theo chiều dọc */
+    width: var(--container-width);
+    height: var(--container-height);
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
+
 
 /* Upload Form */
 .upload-container {
@@ -345,8 +350,8 @@ main {
 }
 
 .thumbnail {
-    width: 70px;
-    height: 70px;
+        height: 150px;
+        width: 150px;
     object-fit: cover;
     border-radius: var(--border-radius);
     margin-right: 0.8rem;
@@ -379,29 +384,74 @@ main {
 }
 
 /* Điều chỉnh tab upload */
+/* Điều chỉnh tab upload */
 #upload-tab.active {
     display: flex;
+    flex-direction: row; /* Chuyển thành bố cục hai cột giống camera-tab */
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Điều chỉnh form upload để phù hợp với bố cục hai cột */
+#upload-tab .left-column {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#upload-tab .upload-form {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: 0;
+}
+
+#upload-tab .file-label {
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 2rem;
+    border: 3px dashed #ccc;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(251, 238, 230, 1);
+    height: 200px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 1.5rem;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-    width: 6px;
+/* Đảm bảo right-column trong upload-tab giống với camera-tab */
+#upload-tab .right-column {
+    height: 100%;
 }
 
-::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
+#upload-tab .gallery-container {
+    height: 100%;
 }
 
-::-webkit-scrollbar-thumb {
-    background: #CD7672;
-    border-radius: 10px;
+/* Làm cho nút upload và phân loại nổi bật */
+#upload-tab .upload-button {
+    margin-top: auto;
+    padding: 1rem 1.5rem;
+    font-size: 1.2rem;
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: #DC8665;
+/* Cải thiện hiển thị tên file */
+#upload-tab .file-name {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: var(--border-radius);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.9rem;
 }
 
 /* Result Page */
